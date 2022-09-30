@@ -125,11 +125,17 @@ class PAP(nn.Module):
         x = self.enc_block4(x)
         
         x = self.avgpool(x).squeeze(-1).squeeze(-1) # (B, D, 1, 1) -> (B, D)
-        x, _, log_var1 = self.activation(self.latent_stochastic1(x))
-        x, _, log_var2 = self.activation(self.latent_stochastic2(x))
+        x, _, log_var1 = self.latent_stochastic1(x)
+        x = self.activation(x)
+        x, _, log_var2 = self.latent_stochastic2(x)
+        x = self.activation(x)
         
-        margin = 5
-        loss = (get_loss(log_var1, margin) + get_loss(log_var2, margin)) / 2.0
+        margin = 1
+        # print(f"log_var1: {log_var1.mean().item()}")
+        # print(f"log_var2: {log_var2.mean().item()}")
+        assert not log_var1.isnan().any()
+        assert not log_var2.isnan().any()
+        loss = (self.get_loss(log_var1, margin) + self.get_loss(log_var2, margin)) / 2.0
         
         x = x.reshape(x.size(0), 512, 2, 2)
         
@@ -149,7 +155,7 @@ class PAP(nn.Module):
         return x, loss
     
     def get_loss(self, log_var, margin):
-        return F.softplus(margin - log_var)
+        return torch.max(margin - log_var, 0)[0].mean()
     
 # =============================================================================
 
